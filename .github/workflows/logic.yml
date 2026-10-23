@@ -1,0 +1,15 @@
+name: Heartbeat logic
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  host-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile and test standalone decision logic
+        run: |
+          g++ -std=c++17 -Wall -Wextra -Werror firmware/tests/heart_logic_test.cpp -o /tmp/moodi-heart-test
+          /tmp/moodi-heart-test

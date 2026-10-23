@@ -1,0 +1,37 @@
+{
+  "version": 4,
+  "configurations": [
+    {
+      "name": "XIAO ESP32-C6 (Arduino)",
+      "compileCommands": "${workspaceFolder}/.vscode/compile_commands.json",
+      "includePath": [
+        "${workspaceFolder}/firmware/MoodiWearable",
+        "/Users/crisnevelits/Library/Arduino15/packages/esp32/hardware/esp32/3.3.12/cores/esp32",
+        "/Users/crisnevelits/Library/Arduino15/packages/esp32/hardware/esp32/3.3.12/variants/XIAO_ESP32C6",
+        "/Users/crisnevelits/Library/Arduino15/packages/esp32/hardware/esp32/3.3.12/libraries/Wire/src",
+        "/Users/crisnevelits/Library/Arduino15/packages/esp32/hardware/esp32/3.3.12/libraries/SPI/src",
+        "/Users/crisnevelits/Library/Arduino15/packages/esp32/tools/esp32c6-libs/3.3.12/qio_qspi/include",
+        "/Users/crisnevelits/Documents/Arduino/libraries/SparkFun_MAX3010x_Pulse_and_Proximity_Sensor_Library/src",
+        "/Users/crisnevelits/Documents/Arduino/libraries/Adafruit_DRV2605_Library",
+        "/Users/crisnevelits/Documents/Arduino/libraries/Adafruit_BusIO",
+        "/Users/crisnevelits/Documents/Arduino/libraries/NimBLE-Arduino/src"
+      ],
+      "defines": [
+        "ARDUINO=10819",
+        "ARDUINO_ARCH_ESP32",
+        "ESP_PLATFORM",
+        "CONFIG_IDF_TARGET_ESP32C6"
+      ],
+      "compilerPath": "/Users/crisnevelits/Library/Arduino15/packages/esp32/tools/esp-rv32/2601/bin/riscv32-esp-elf-g++",
+      "compilerArgs": [
+        "@/Users/crisnevelits/Library/Arduino15/packages/esp32/tools/esp32c6-libs/3.3.12/flags/cpp_flags",
+        "@/Users/crisnevelits/Library/Arduino15/packages/esp32/tools/esp32c6-libs/3.3.12/flags/defines",
+        "-iprefix",
+        "/Users/crisnevelits/Library/Arduino15/packages/esp32/tools/esp32c6-libs/3.3.12/include/",
+        "@/Users/crisnevelits/Library/Arduino15/packages/esp32/tools/esp32c6-libs/3.3.12/flags/includes"
+      ],
+      "intelliSenseMode": "macos-gcc-arm64",
+      "cppStandard": "c++17"
+    }
+  ]
+}
