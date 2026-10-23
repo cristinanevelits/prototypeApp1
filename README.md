@@ -1,4 +1,4 @@
-# moodi · pulse-responsive wearable prototype
+# pulse-responsive wearable prototype
 
 A minimal iPhone app and XIAO ESP32-C6 firmware for a **non-medical** wearable prototype. The MAX30102 estimates heart rate; after a reliable reading stays above a configurable threshold for five seconds, the XIAO can play a soft, double-beat haptic pattern through a DRV2605L and one ERM motor. The phone shows live BPM over Bluetooth Low Energy (BLE) and optional recent-workout context from Apple Health.
 
