@@ -5,6 +5,8 @@
 // Hardware-independent decision logic. BPM elevation is NOT an anxiety diagnosis.
 class HeartLogic {
  public:
+  static constexpr uint32_t kMinimumResponseMs = 60000UL;
+  static constexpr uint32_t kBelowResetHoldMs = 30000UL;
   uint8_t startBpm = 100;
   uint8_t stopBpm = 90;
   bool automatic = true;
@@ -28,22 +30,30 @@ class HeartLogic {
   }
 
   void update(uint32_t now, uint8_t bpm, bool valid) {
-    if (!valid || !automatic || exerciseOverride) {
+    if (!automatic || exerciseOverride) {
       active = false;
       highPending_ = false;
       lowPending_ = false;
       return;
     }
 
+    if (!valid) {
+      // A missed reading or lifted finger must not cut short an already
+      // triggered pattern. Do not treat missing data as a low BPM reading.
+      highPending_ = false;
+      lowPending_ = false;
+      if (active && now - burstStarted_ < kMinimumResponseMs) return;
+      if (active) stopNow(now); // no indefinite motor output without a reading
+      return;
+    }
+
     if (active) {
-      // Never vibrate indefinitely, even if the reading stays high.
-      if (now - burstStarted_ >= 10000UL) {
-        stopNow(now);
-        return;
-      }
-      if (bpm <= stopBpm) {
+      // Keep the pattern for at least one minute, then until BPM has stayed
+      // below the reset threshold. User stops override the minimum.
+      const uint32_t elapsed = now - burstStarted_;
+      if (bpm < stopBpm) {
         if (!lowPending_) { lowPending_ = true; lowSince_ = now; }
-        if (now - lowSince_ >= 5000UL) stopNow(now);
+        if (elapsed >= kMinimumResponseMs && now - lowSince_ >= kBelowResetHoldMs) stopNow(now);
       } else {
         lowPending_ = false;
       }

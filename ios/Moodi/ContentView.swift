@@ -6,8 +6,10 @@ struct ContentView: View {
     @StateObject private var health = HealthManager()
     @State private var startThreshold = 100
     @State private var stopThreshold = 90
-    @State private var exercising = false
-    @State private var automatic = true
+    @AppStorage("moodi.exercising") private var exercising = false
+    @AppStorage("moodi.automatic") private var automatic = true
+    @AppStorage("moodi.exercisingPending") private var exercisingPending = false
+    @AppStorage("moodi.automaticPending") private var automaticPending = false
 
     private let background = Color(red: 0.06, green: 0.07, blue: 0.10)
     private let card = Color(red: 0.12, green: 0.13, blue: 0.17)
@@ -16,14 +18,16 @@ struct ContentView: View {
     private var automaticBinding: Binding<Bool> {
         Binding(get: { automatic }, set: { enabled in
             automatic = enabled
-            bluetooth.setAutomatic(enabled)
+            automaticPending = true
+            if bluetooth.controlsReady { bluetooth.setAutomatic(enabled) }
         })
     }
 
     private var exercisingBinding: Binding<Bool> {
         Binding(get: { exercising }, set: { enabled in
             exercising = enabled
-            bluetooth.setWorkoutOverride(enabled)
+            exercisingPending = true
+            if bluetooth.controlsReady { bluetooth.setWorkoutOverride(enabled) }
         })
     }
 
@@ -100,21 +104,28 @@ struct ContentView: View {
 
                     VStack(alignment: .leading, spacing: 17) {
                         Text("Response settings").font(.headline)
-                        Toggle("Automatic heartbeat response", isOn: automaticBinding)
-                            .disabled(!bluetooth.controlsReady)
+                        Toggle("Vibration on/off", isOn: automaticBinding)
+                        Text("On allows the automatic heartbeat pattern above your BPM threshold. Off stops it immediately; On never forces the motor to run at a normal pulse.")
+                            .font(.caption).foregroundStyle(.secondary)
                         Toggle("I'm exercising — pause automatic response", isOn: exercisingBinding)
-                            .disabled(!bluetooth.controlsReady)
+                        if automaticPending || exercisingPending {
+                            Label(bluetooth.controlsReady ? "Waiting for wearable confirmation" : (bluetooth.connected ? "Saved on phone — matching Moodi firmware needed to apply" : "Saved on phone — connect wearable to apply"), systemImage: "arrow.triangle.2.circlepath")
+                                .font(.caption).foregroundStyle(accent)
+                        }
                         Stepper("Start at \(startThreshold) BPM", value: $startThreshold, in: 50...200)
                         Stepper("Reset below \(stopThreshold) BPM", value: $stopThreshold, in: 40...199)
-                        Button("Send thresholds") {
+                        Button {
                             bluetooth.setThresholds(start: startThreshold, stop: stopThreshold)
+                        } label: {
+                            Label("Send BPM thresholds", systemImage: "paperplane.fill")
+                                .frame(maxWidth: .infinity)
                         }
+                        .buttonStyle(.borderedProminent).tint(accent)
                         .disabled(stopThreshold >= startThreshold || !bluetooth.controlsReady)
-                        Button("Stop vibration and disable automatic response", role: .destructive) {
-                            automatic = false
-                            bluetooth.stopNow()
+                        if !bluetooth.controlsReady {
+                            Text(bluetooth.connected ? "This firmware can send pulse readings but does not expose Moodi controls. The vibration switch and thresholds need the matching wearable sketch." : "Switch settings are saved on the phone; connecting a matching wearable applies them.")
+                                .font(.caption).foregroundStyle(.secondary)
                         }
-                        .disabled(!bluetooth.controlsReady)
                     }
                     .padding(20).background(card, in: RoundedRectangle(cornerRadius: 22))
 
@@ -123,10 +134,17 @@ struct ContentView: View {
                         Text(health.summary).font(.subheadline)
                         if !health.source.isEmpty { Text(health.source).font(.caption).foregroundStyle(.secondary) }
                         HStack {
-                            Button("Connect Health") { health.connect() }
-                            Button("Refresh") { health.refresh() }
+                            if !health.authorizationRequested {
+                                Button("Connect Health") { health.connect() }
+                            } else {
+                                Button("Refresh workouts") { health.refresh() }
+                            }
                         }
                         .buttonStyle(.bordered)
+                        if health.authorizationRequested {
+                            Text("Health request completed. You can review workout access in the Health app.")
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
                         Text("Recorded workouts are not a reliable live exercise signal. Use the exercise switch above when active.")
                             .font(.caption).foregroundStyle(.secondary)
                     }
@@ -142,9 +160,19 @@ struct ContentView: View {
                 guard let status else { return }
                 startThreshold = status.startBpm
                 stopThreshold = status.stopBpm
-                automatic = status.automatic
-                exercising = status.workoutOverride
+                if automaticPending {
+                    if status.automatic == automatic { automaticPending = false }
+                } else { automatic = status.automatic }
+                if exercisingPending {
+                    if status.workoutOverride == exercising { exercisingPending = false }
+                } else { exercising = status.workoutOverride }
             }
+            .onReceive(bluetooth.$controlsReady) { ready in
+                guard ready else { return }
+                if automaticPending { bluetooth.setAutomatic(automatic) }
+                if exercisingPending { bluetooth.setWorkoutOverride(exercising) }
+            }
+            .onAppear { if health.authorizationRequested { health.refresh() } }
         }
         .preferredColorScheme(.dark)
     }

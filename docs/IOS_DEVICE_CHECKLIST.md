@@ -18,7 +18,7 @@ The iPhone app has no third-party Swift packages. SwiftUI, Charts, Core Bluetoot
 
 ## First functional test
 
-1. With the USB-powered XIAO nearby, tap **Connect to XIAO**. The app should find `moodi`, discover both services, and show **Connected**. Secure controls may prompt for Bluetooth pairing.
+1. With the USB-powered XIAO nearby, tap **Connect to XIAO**. The app checks for an already-connected Moodi device before scanning. With the matching sketch it discovers both services and shows **Connected**. With the earlier Heart Rate Service-only `CalmPulse` sketch it can show **Connected · pulse only**; the vibration switch and thresholds remain unavailable until the matching firmware is uploaded. Secure controls may prompt for Bluetooth pairing.
 2. Put the MAX30102 optical face against skin. A plausible BPM should appear once enough clean beats have been collected. Removing it should clear the number; `0` must never appear as a measured pulse.
 3. Change the two thresholds and tap **Send thresholds**. Check that the displayed settings settle to the values reported back by the XIAO.
 4. Switch on **I'm exercising**. The device status should reflect the override and suppress automatic response. Switch it off again.
@@ -26,5 +26,7 @@ The iPhone app has no third-party Swift packages. SwiftUI, Charts, Core Bluetoot
 6. Disconnect and reconnect. The XIAO should advertise again. Leave the app foregrounded for this prototype; background BLE behavior is not implemented.
 
 The motor will **not** vibrate in this build. That is intentional: its electrical rating and safe DRV2605L settings still need an off-body bench check. Do not try to force a high heart rate to test the threshold logic; the hardware-independent timing and stop rules have automated tests in `firmware/tests/`.
+
+If your actual device already vibrates, it does not have the checked-in locked sketch. The one-minute timing change in this repository will not affect the device until its actual firmware is identified and updated. Do not upload the locked sketch expecting the motor to keep working.
 
 If Xcode reports a build, signing, pairing, or permission error, record the exact message and device/iOS version before changing settings. An actual Xcode build and iPhone test are still required to call this app working on iOS.

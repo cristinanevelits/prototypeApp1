@@ -16,9 +16,9 @@ A minimal iPhone app and XIAO ESP32-C6 firmware for a **non-medical** wearable p
 
 ## Behavior
 
-- The XIAO samples the optical sensor continuously at a configured 100 Hz and sends BLE heart-rate updates about once per second. The app saves **one valid point per minute** for its graph. Sampling only once a minute would miss changes and could not stop vibration promptly on lost contact.
+- The XIAO samples the optical sensor continuously at a configured 100 Hz and sends BLE heart-rate updates about once per second. The app saves **one valid point per minute** for its graph. Sampling only once a minute would miss threshold changes and sensor-contact status.
 - Initial adjustable thresholds are **start at 100 BPM** and **reset at 90 BPM**. Four plausible beat intervals and a regularity check are required. These are prototype signal checks, not clinical validation.
-- A valid reading above the start threshold for **five seconds** requests a gentle 60-BPM-inspired double pulse. A valid reading below the reset threshold for five seconds stops it. Contact loss, sensor silence, or exercise override stops immediately. Every burst ends after **10 seconds**, followed by a **60-second cooldown**.
+- A valid reading above the start threshold for **five seconds** requests a gentle 60-BPM-inspired double pulse. Once started, a response runs for **at least 60 seconds**, even if finger contact is lost during that first minute. With valid readings afterward, it continues while BPM remains above the reset threshold and stops only after BPM has stayed **below** the reset threshold for **30 continuous seconds**; a rise or missing reading resets that countdown. If contact is still missing at one minute (or is lost later), the response stops rather than running indefinitely without a reading. A **60-second cooldown** follows. Exercise override and switching vibration off still stop immediately. The motor pulses briefly each beat; it is not powered continuously for a minute. This duration has not been validated with the actual motor, so test only off-body after verifying its electrical ratings.
 - The XIAO runs this logic without a phone. The iPhone can adjust thresholds, disable automatic response, and set an exercise override. A disconnected phone is not an emergency stop; disconnect USB for the desk prototype.
 - The app optionally reads **recent recorded workouts** from Apple Health, where Fitness/Watch records may appear. This is **not** a dependable live indication that another app's workout is running. Use the manual exercise switch for a live override. Neither a recent workout nor its absence identifies anxiety.
 - No cloud account, location tracking, analytics, or HealthKit writes are included.
@@ -60,11 +60,13 @@ For first-time installation and a pass/fail device test, follow [the iPhone chec
 
 1. Install the full Xcode app (this Mac currently has Command Line Tools but not full Xcode). Open `ios/Moodi.xcodeproj`.
 2. Select the `Moodi` target. Under **Signing & Capabilities**, choose your Apple development team and confirm **HealthKit** is enabled. The entitlement and permission strings are already included. Change the bundle identifier if your team requires it.
-3. Run on a **physical iPhone** with Bluetooth on. Grant Bluetooth permission, then tap **Connect to XIAO**. The XIAO advertises as `moodi`; encrypted controls may trigger an iOS pairing prompt.
+3. Run on a **physical iPhone** with Bluetooth on. Grant Bluetooth permission, then tap **Connect to XIAO**. The app can attach to a matching peripheral already connected in iOS, or scan for `moodi` / the earlier `CalmPulse` name. iOS Settings showing a connection does not mean this app has connected or that its expected services exist. A legacy Heart Rate Service-only sketch supports **pulse display only**; encrypted Moodi controls require the matching repository sketch. Pairing may prompt on first access.
 4. Tap **Connect Health** to grant read access to Workouts, then **Refresh**. HealthKit may return no data even when read access was denied; the app therefore does not interpret “no workout” as “not exercising.”
-5. Adjust steppers and tap **Send thresholds**. The exercise switch suppresses automatic response in XIAO even after phone disconnection, until turned off or XIAO reboot. The Stop button requires a current BLE connection.
+5. Adjust steppers and tap **Send thresholds**. The **Vibration on/off** switch enables the BPM-triggered automatic pattern or stops it immediately; turning it on does not start a motor test. The exercise switch suppresses automatic response in XIAO even after phone disconnection, until turned off or XIAO reboot. Device controls require the matching BLE sketch.
 
 The app uses foreground BLE. iOS may suspend it in the background; **XIAO-side sensing and stop rules continue**. It does not monitor another app's live workout session.
+
+If the wearable currently vibrates while the checked-in sketch still has `MOODI_MOTOR_APPROVED 0`, it is running **different firmware**. Updating this repository does not change the XIAO until a sketch is uploaded; uploading this checked-in sketch as-is will lock motor output. Do not bypass that lock without verifying the motor's electrical ratings. To apply the one-minute response to the actual device, first identify its uploaded sketch and safely port the timing change to it.
 
 ## Validation and unresolved hardware
 

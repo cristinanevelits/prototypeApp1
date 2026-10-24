@@ -16,6 +16,7 @@ final class BLEManager: NSObject, ObservableObject {
     private var controlCharacteristic: CBCharacteristic?
     private var foundHeartMeasurement = false
     private var foundStatus = false
+    private var hasMoodiService = false
     private var scanTimeout: DispatchWorkItem?
 
     override init() {
@@ -32,12 +33,22 @@ final class BLEManager: NSObject, ObservableObject {
         }
         guard !connected else { return }
         stopScanning()
+        // A device already connected in iOS Settings may no longer advertise.
+        let moodiConnected = central.retrieveConnectedPeripherals(withServices: [MoodiProtocol.service])
+        let heartConnected = central.retrieveConnectedPeripherals(withServices: [MoodiProtocol.heartService])
+        if let match = moodiConnected.first ?? heartConnected.first(where: { isMoodi($0, advertisementData: nil) }) {
+            connect(to: match)
+            return
+        }
         connection = "Searching for moodi…"
-        central.scanForPeripherals(withServices: [MoodiProtocol.service], options: nil)
+        // Older CalmPulse firmware advertises only the standard Heart Rate service.
+        // Scan without a service filter, but connect only to a known device name or
+        // one advertising Moodi's unique service UUID.
+        central.scanForPeripherals(withServices: nil, options: nil)
         let timeout = DispatchWorkItem { [weak self] in
             guard let self, self.central.isScanning else { return }
             self.central.stopScan()
-            self.connection = "No moodi found — check XIAO power, then retry"
+            self.connection = "No moodi found — check XIAO power and Bluetooth, then retry"
         }
         scanTimeout = timeout
         DispatchQueue.main.asyncAfter(deadline: .now() + 15, execute: timeout)
@@ -73,7 +84,25 @@ final class BLEManager: NSObject, ObservableObject {
         controlCharacteristic = nil
         foundHeartMeasurement = false
         foundStatus = false
+        hasMoodiService = false
         controlsReady = false
+    }
+
+    private func isMoodi(_ peripheral: CBPeripheral, advertisementData: [String: Any]?) -> Bool {
+        let advertisedName = advertisementData?[CBAdvertisementDataLocalNameKey] as? String
+        let name = (advertisedName ?? peripheral.name ?? "").lowercased()
+        if name == "moodi" || name == "calmpulse" { return true }
+        let services = advertisementData?[CBAdvertisementDataServiceUUIDsKey] as? [CBUUID] ?? []
+        return services.contains(MoodiProtocol.service)
+    }
+
+    private func connect(to peripheral: CBPeripheral) {
+        stopScanning()
+        clearReading()
+        self.peripheral = peripheral
+        peripheral.delegate = self
+        connection = "Connecting to \(peripheral.name ?? "moodi")…"
+        central.connect(peripheral, options: nil)
     }
 
     private func stopScanning() {
@@ -104,11 +133,8 @@ extension BLEManager: CBCentralManagerDelegate {
 
     func centralManager(_ central: CBCentralManager, didDiscover peripheral: CBPeripheral,
                         advertisementData: [String: Any], rssi RSSI: NSNumber) {
-        stopScanning()
-        self.peripheral = peripheral
-        peripheral.delegate = self
-        connection = "Connecting…"
-        central.connect(peripheral, options: nil)
+        guard isMoodi(peripheral, advertisementData: advertisementData) else { return }
+        connect(to: peripheral)
     }
 
     func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral) {
@@ -117,7 +143,7 @@ extension BLEManager: CBCentralManagerDelegate {
     }
 
     func centralManager(_ central: CBCentralManager, didFailToConnect peripheral: CBPeripheral, error: Error?) {
-        connection = "Connection failed — retry"
+        connection = "Connection failed: \(error?.localizedDescription ?? "retry")"
         self.peripheral = nil
         clearReading()
     }
@@ -135,12 +161,13 @@ extension BLEManager: CBPeripheralDelegate {
             connection = "Could not discover services"
             return
         }
-        guard services.contains(where: { $0.uuid == MoodiProtocol.heartService }),
-              services.contains(where: { $0.uuid == MoodiProtocol.service }) else {
-            connection = "Connected device lacks moodi services"
+        guard services.contains(where: { $0.uuid == MoodiProtocol.heartService }) else {
+            connection = "Device has no Heart Rate service (180D)"
             central.cancelPeripheralConnection(peripheral)
             return
         }
+        hasMoodiService = services.contains(where: { $0.uuid == MoodiProtocol.service })
+        connection = hasMoodiService ? "Connected · discovering Moodi controls" : "Connected · pulse only (different firmware)"
         for service in services {
             if service.uuid == MoodiProtocol.heartService {
                 peripheral.discoverCharacteristics([MoodiProtocol.heartMeasurement], for: service)
@@ -152,7 +179,7 @@ extension BLEManager: CBPeripheralDelegate {
 
     func peripheral(_ peripheral: CBPeripheral, didDiscoverCharacteristicsFor service: CBService, error: Error?) {
         guard error == nil else {
-            connection = "Could not discover device controls"
+            connection = "Could not discover \(service.uuid == MoodiProtocol.heartService ? "heart rate" : "device controls")"
             return
         }
         for characteristic in service.characteristics ?? [] {
@@ -168,6 +195,10 @@ extension BLEManager: CBPeripheralDelegate {
         if foundHeartMeasurement && foundStatus && controlCharacteristic != nil {
             controlsReady = true
             connection = "Connected"
+        } else if foundHeartMeasurement && !hasMoodiService {
+            connection = "Connected · pulse only (upload matching Moodi firmware for controls)"
+        } else if service.uuid == MoodiProtocol.heartService && !foundHeartMeasurement {
+            connection = "Connected device has no heart-rate measurement (2A37)"
         }
     }
 

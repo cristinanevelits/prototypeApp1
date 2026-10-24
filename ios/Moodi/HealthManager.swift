@@ -5,6 +5,7 @@ import HealthKit
 final class HealthManager: ObservableObject {
     @Published private(set) var summary = "Connect Health to show recent recorded workouts."
     @Published private(set) var source = ""
+    @Published private(set) var authorizationRequested = UserDefaults.standard.bool(forKey: "moodi.healthAuthorizationRequested")
 
     private let store = HKHealthStore()
 
@@ -13,10 +14,14 @@ final class HealthManager: ObservableObject {
             summary = "Health data is unavailable on this device."
             return
         }
-        store.requestAuthorization(toShare: [], read: [HKObjectType.workoutType()]) { [weak self] _, error in
+        store.requestAuthorization(toShare: [], read: [HKObjectType.workoutType()]) { [weak self] completed, error in
             DispatchQueue.main.async {
                 if let error { self?.summary = "Health permission error: \(error.localizedDescription)" }
-                else { self?.refresh() }
+                else if completed {
+                    UserDefaults.standard.set(true, forKey: "moodi.healthAuthorizationRequested")
+                    self?.authorizationRequested = true
+                    self?.refresh()
+                }
             }
         }
     }
@@ -35,8 +40,8 @@ final class HealthManager: ObservableObject {
                 }
                 guard let workout = samples?.first as? HKWorkout else {
                     // HealthKit intentionally doesn't reveal whether read permission was denied.
-                    self?.summary = "No recorded workout available in the last 24 hours."
-                    self?.source = "This does not prove you are not exercising."
+                    self?.summary = "No workout is visible in the last 24 hours."
+                    self?.source = "If you expected one, review moodi's access in the Health app. This is not a live exercise signal."
                     return
                 }
                 self?.summary = "Last recorded workout ended \(workout.endDate.formatted(date: .abbreviated, time: .shortened))."
