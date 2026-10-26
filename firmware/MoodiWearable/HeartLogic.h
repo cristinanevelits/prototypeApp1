@@ -21,7 +21,7 @@ class HeartLogic {
   }
 
   bool setThresholds(uint8_t start, uint8_t stop) {
-    if (start < 50 || start > 200 || stop < 40 || stop >= start) return false;
+    if (start < 31 || start > 220 || stop < 30 || stop >= start) return false;
     startBpm = start;
     stopBpm = stop;
     highPending_ = false;

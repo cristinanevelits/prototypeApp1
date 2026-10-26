@@ -1,26 +1,26 @@
-# moodi BLE protocol · version 1
+# CalmPulse BLE protocol · Schematik firmware
 
-The XIAO advertises as `moodi`, with the custom 128-bit service UUID in the advertisement. The standard Heart Rate service is discoverable after connection. UUIDs are implemented in both `firmware/MoodiWearable/MoodiWearable.ino` and `ios/Moodi/MoodiProtocol.swift`.
+The currently uploaded XIAO program advertises as `CalmPulse` with Heart Rate service `180D`. The app discovers the custom service after connection. This protocol is defined by the user's Schematik program pasted on October 26; it is **not** the separate repository sketch's older binary command protocol.
 
 | Service / characteristic | UUID | Purpose |
 |---|---|---|
 | Heart Rate service | `180D` | Standard heart-rate service |
 | Heart Rate Measurement | `2A37` | Read + notify, about 1 Hz |
-| moodi service | `8F941100-B6B1-4F96-9F4D-356DB1FE7A10` | Custom control/status |
-| Status | `8F941101-B6B1-4F96-9F4D-356DB1FE7A10` | Read + notify, about 1 Hz |
-| Control | `8F941102-B6B1-4F96-9F4D-356DB1FE7A10` | Encrypted write with response |
+| Control service | `8A7E1000-6F34-4C9A-9F30-2B739074F001` | Custom control/status |
+| Command | `8A7E1001-6F34-4C9A-9F30-2B739074F001` | UTF-8 JSON write with response; no pairing protection |
+| Status | `8A7E1002-6F34-4C9A-9F30-2B739074F001` | UTF-8 JSON read + notify |
 
 Heart Rate Measurement is two bytes: flags `0x06` and 8-bit BPM when current reading is valid; flags `0x04` and BPM `0` otherwise. These are the standard contact-supported/contact-detected bits. Never plot zero as a measured heart rate.
 
-Status is five bytes: `[version=1, flags, bpm, startBpm, stopBpm]`. Flags: bit `0` valid reading, `1` motor active, `2` automatic mode, `3` exercise override, `4` sensor found, `5` driver found, `6` motor hardware approved/unlocked. A threshold decision with output locked does not set motor-active.
+Status JSON fields: `seq`, `start`, `stop`, `mode`, `active`, `driver`, `remaining`, `error`. `seq` increments for every received command; `error` is empty on success or a rejection code such as `invalid_threshold`.
 
-Control byte arrays:
+Command JSON objects:
 
-| Bytes | Action |
+| JSON | Action |
 |---|---|
-| `[0x01, 0 or 1]` | Disable/enable automatic response |
-| `[0x02, 0 or 1]` | Disable/enable manual exercise override |
-| `[0x03, startBpm, stopBpm]` | Set thresholds; start 50–200, stop 40 to less than start |
-| `[0x04]` | Stop now and disable automatic response |
+| `{"mode":"auto"}` | Start automatically above threshold; minimum 60 seconds |
+| `{"mode":"on"}` | Accepted by the program currently uploaded on October 26; runs continuously, including through BLE disconnection. The app never sends this. The unflashed `firmware/CalmPulseSchematik/` copy rejects it. |
+| `{"mode":"off"}` | Stop immediately |
+| `{"start":100,"stop":90}` | Set both thresholds; 40 ≤ stop < start ≤ 220 |
 
-Thresholds and overrides are RAM-only and reset on reboot. The phone is optional for autonomous threshold behavior. No raw PPG, location, identity, or HealthKit data is sent to the XIAO.
+Thresholds and mode are RAM-only and reset on XIAO reboot. The app saves threshold choices locally and resends them on reconnection. It does not automatically re-enable manual On after a new app session. The phone is optional for autonomous Auto behavior. No raw PPG, location, identity, or HealthKit data is sent to the XIAO.

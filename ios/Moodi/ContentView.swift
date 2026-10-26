@@ -4,31 +4,50 @@ import SwiftUI
 struct ContentView: View {
     @StateObject private var bluetooth = BLEManager()
     @StateObject private var health = HealthManager()
-    @State private var startThreshold = 100
-    @State private var stopThreshold = 90
-    @AppStorage("moodi.exercising") private var exercising = false
-    @AppStorage("moodi.automatic") private var automatic = true
-    @AppStorage("moodi.exercisingPending") private var exercisingPending = false
-    @AppStorage("moodi.automaticPending") private var automaticPending = false
+    @AppStorage("moodi.startThreshold") private var startThreshold = 100
+    @AppStorage("moodi.stopThreshold") private var stopThreshold = 90
+    @AppStorage("moodi.thresholdPending") private var thresholdPending = false
+    @State private var thresholdSend: DispatchWorkItem?
+    @AppStorage("calmpulse.mode") private var responseMode = "auto"
+    @State private var modePending = false
 
     private let background = Color(red: 0.06, green: 0.07, blue: 0.10)
     private let card = Color(red: 0.12, green: 0.13, blue: 0.17)
     private let accent = Color(red: 0.84, green: 0.53, blue: 0.72)
 
-    private var automaticBinding: Binding<Bool> {
-        Binding(get: { automatic }, set: { enabled in
-            automatic = enabled
-            automaticPending = true
-            if bluetooth.controlsReady { bluetooth.setAutomatic(enabled) }
+    private var vibrationBinding: Binding<Bool> {
+        Binding(get: { responseMode != "off" }, set: { enabled in
+            let mode = enabled ? "auto" : "off"
+            responseMode = mode
+            modePending = true
+            if bluetooth.controlsReady { bluetooth.setMode(mode) }
         })
     }
 
-    private var exercisingBinding: Binding<Bool> {
-        Binding(get: { exercising }, set: { enabled in
-            exercising = enabled
-            exercisingPending = true
-            if bluetooth.controlsReady { bluetooth.setWorkoutOverride(enabled) }
-        })
+    private func changeStart(by amount: Int) {
+        let next = startThreshold + amount
+        guard (41...220).contains(next), stopThreshold < next else { return }
+        startThreshold = next
+        scheduleThresholdSend()
+    }
+
+    private func changeStop(by amount: Int) {
+        let next = stopThreshold + amount
+        guard (40..<startThreshold).contains(next) else { return }
+        stopThreshold = next
+        scheduleThresholdSend()
+    }
+
+    private func scheduleThresholdSend() {
+        thresholdPending = true
+        thresholdSend?.cancel()
+        let work = DispatchWorkItem {
+            if bluetooth.controlsReady {
+                bluetooth.setThresholds(start: startThreshold, stop: stopThreshold)
+            }
+        }
+        thresholdSend = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35, execute: work)
     }
 
     var body: some View {
@@ -55,8 +74,8 @@ struct ContentView: View {
                             Text("BPM").font(.headline).foregroundStyle(.secondary)
                         }
                         Text(readingCaption(fresh: fresh)).font(.subheadline).foregroundStyle(.secondary)
-                        if fresh, let status = bluetooth.status, status.vibrating {
-                            Label("Gentle heartbeat response", systemImage: "waveform.path")
+                        if let status = bluetooth.status, status.active {
+                            Label(status.remainingSeconds > 0 ? "Heartbeat response · at least \(status.remainingSeconds)s remaining" : "Gentle heartbeat response", systemImage: "waveform.path")
                                 .foregroundStyle(accent)
                         }
                     }
@@ -87,12 +106,16 @@ struct ContentView: View {
                     VStack(alignment: .leading, spacing: 16) {
                         Text("Device").font(.headline)
                         Text(bluetooth.connection).font(.subheadline).foregroundStyle(.secondary)
+                        if let reason = bluetooth.lastDisconnectReason {
+                            Text("Last Bluetooth drop: \(reason)")
+                                .font(.caption).foregroundStyle(.orange)
+                        }
                         Button(bluetooth.connected ? "Disconnect" : "Connect to XIAO") {
                             bluetooth.connected ? bluetooth.disconnect() : bluetooth.connect()
                         }
                         .buttonStyle(.borderedProminent).tint(accent)
-                        if let status = bluetooth.status, !status.motorApproved {
-                            Label("Motor output locked until its rating is verified", systemImage: "lock.shield")
+                        if let status = bluetooth.status, !status.driverFound {
+                            Label("Motor driver not detected by the XIAO", systemImage: "exclamationmark.triangle")
                                 .font(.footnote).foregroundStyle(.orange)
                         }
                         if let error = bluetooth.lastCommandError {
@@ -104,26 +127,50 @@ struct ContentView: View {
 
                     VStack(alignment: .leading, spacing: 17) {
                         Text("Response settings").font(.headline)
-                        Toggle("Vibration on/off", isOn: automaticBinding)
-                        Text("On allows the automatic heartbeat pattern above your BPM threshold. Off stops it immediately; On never forces the motor to run at a normal pulse.")
+                        Toggle("Vibration on/off", isOn: vibrationBinding)
+                            .tint(accent)
+                        Text("On allows the automatic heartbeat response above your BPM threshold. Off stops it immediately. This switch never selects the XIAO's continuous manual mode.")
                             .font(.caption).foregroundStyle(.secondary)
-                        Toggle("I'm exercising — pause automatic response", isOn: exercisingBinding)
-                        if automaticPending || exercisingPending {
-                            Label(bluetooth.controlsReady ? "Waiting for wearable confirmation" : (bluetooth.connected ? "Saved on phone — matching Moodi firmware needed to apply" : "Saved on phone — connect wearable to apply"), systemImage: "arrow.triangle.2.circlepath")
+                        if modePending || thresholdPending {
+                            Label(bluetooth.controlsReady ? "Waiting for wearable confirmation" : (bluetooth.connected ? "Saved on phone — CalmPulse controls unavailable" : "Saved on phone — connect CalmPulse to apply"), systemImage: "arrow.triangle.2.circlepath")
                                 .font(.caption).foregroundStyle(accent)
                         }
-                        Stepper("Start at \(startThreshold) BPM", value: $startThreshold, in: 50...200)
-                        Stepper("Reset below \(stopThreshold) BPM", value: $stopThreshold, in: 40...199)
-                        Button {
-                            bluetooth.setThresholds(start: startThreshold, stop: stopThreshold)
-                        } label: {
-                            Label("Send BPM thresholds", systemImage: "paperplane.fill")
-                                .frame(maxWidth: .infinity)
+                        HStack {
+                            Text("Start at")
+                            Spacer()
+                            Button { changeStart(by: -1) } label: { Image(systemName: "minus") }
+                                .disabled(startThreshold <= 41 || startThreshold - 1 <= stopThreshold)
+                                .accessibilityLabel("Decrease start BPM")
+                            Text("\(startThreshold) BPM").monospacedDigit().frame(minWidth: 76)
+                            Button { changeStart(by: 1) } label: { Image(systemName: "plus") }
+                                .disabled(startThreshold >= 220)
+                                .accessibilityLabel("Increase start BPM")
                         }
-                        .buttonStyle(.borderedProminent).tint(accent)
-                        .disabled(stopThreshold >= startThreshold || !bluetooth.controlsReady)
+                        .buttonStyle(.bordered).tint(accent)
+                        HStack {
+                            Text("Reset below")
+                            Spacer()
+                            Button { changeStop(by: -1) } label: { Image(systemName: "minus") }
+                                .disabled(stopThreshold <= 40)
+                                .accessibilityLabel("Decrease reset BPM")
+                            Text("\(stopThreshold) BPM").monospacedDigit().frame(minWidth: 76)
+                            Button { changeStop(by: 1) } label: { Image(systemName: "plus") }
+                                .disabled(stopThreshold + 1 >= startThreshold)
+                                .accessibilityLabel("Increase reset BPM")
+                        }
+                        .buttonStyle(.bordered).tint(accent)
+                        if let status = bluetooth.status {
+                            Text("Wearable setting: start \(status.startBpm) · reset below \(status.stopBpm) BPM")
+                                .font(.caption).foregroundStyle(.secondary)
+                            if let contact = status.contactDetected, let valid = status.readingValid {
+                                Text("Sensor: \(contact ? "contact" : "no contact") · \(valid ? "valid pulse" : "no valid pulse")")
+                                    .font(.caption).foregroundStyle(.secondary)
+                            }
+                        }
+                        Text("Use the arrows to change one BPM at a time. The app sends the settled values automatically; they are saved on the phone if disconnected.")
+                            .font(.caption).foregroundStyle(.secondary)
                         if !bluetooth.controlsReady {
-                            Text(bluetooth.connected ? "This firmware can send pulse readings but does not expose Moodi controls. The vibration switch and thresholds need the matching wearable sketch." : "Switch settings are saved on the phone; connecting a matching wearable applies them.")
+                            Text(bluetooth.connected ? "Pulse is connected, but this device has no CalmPulse control service." : "Mode and threshold changes are saved on the phone until CalmPulse connects.")
                                 .font(.caption).foregroundStyle(.secondary)
                         }
                     }
@@ -145,7 +192,7 @@ struct ContentView: View {
                             Text("Health request completed. You can review workout access in the Health app.")
                                 .font(.caption).foregroundStyle(.secondary)
                         }
-                        Text("Recorded workouts are not a reliable live exercise signal. Use the exercise switch above when active.")
+                        Text("Recorded workouts are not a reliable live exercise signal. Choose Off above while exercising.")
                             .font(.caption).foregroundStyle(.secondary)
                     }
                     .padding(20).background(card, in: RoundedRectangle(cornerRadius: 22))
@@ -158,21 +205,53 @@ struct ContentView: View {
             .background(background).foregroundStyle(.white)
             .onReceive(bluetooth.$status) { status in
                 guard let status else { return }
-                startThreshold = status.startBpm
-                stopThreshold = status.stopBpm
-                if automaticPending {
-                    if status.automatic == automatic { automaticPending = false }
-                } else { automatic = status.automatic }
-                if exercisingPending {
-                    if status.workoutOverride == exercising { exercisingPending = false }
-                } else { exercising = status.workoutOverride }
+                if thresholdPending {
+                    if status.startBpm == startThreshold && status.stopBpm == stopThreshold {
+                        thresholdPending = false
+                    }
+                } else {
+                    startThreshold = status.startBpm
+                    stopThreshold = status.stopBpm
+                }
+                if status.mode == "on" {
+                    // An older app or BLE client may have selected continuous manual On.
+                    // This UI only supports automatic On, so leave that mode safely.
+                    if !modePending {
+                        responseMode = "auto"
+                        modePending = true
+                        if bluetooth.controlsReady { bluetooth.setMode("auto") }
+                    }
+                    return
+                }
+                if modePending {
+                    if status.mode == responseMode { modePending = false }
+                } else { responseMode = status.mode }
             }
             .onReceive(bluetooth.$controlsReady) { ready in
-                guard ready else { return }
-                if automaticPending { bluetooth.setAutomatic(automatic) }
-                if exercisingPending { bluetooth.setWorkoutOverride(exercising) }
+                guard ready else {
+                    // Keep the phone's choices and resend them after a reconnect.
+                    thresholdPending = true
+                    return
+                }
+                if modePending { bluetooth.setMode(responseMode) }
+                if thresholdPending {
+                    thresholdSend?.cancel()
+                    bluetooth.setThresholds(start: startThreshold, stop: stopThreshold)
+                }
             }
-            .onAppear { if health.authorizationRequested { health.refresh() } }
+            .onAppear {
+                // Older app builds accepted values that the Schematik program rejects.
+                if !(41...220).contains(startThreshold) || !(40..<startThreshold).contains(stopThreshold) {
+                    startThreshold = 50
+                    stopThreshold = 40
+                    thresholdPending = true
+                }
+                if responseMode == "on" {
+                    responseMode = "auto"
+                    modePending = true
+                }
+                if health.authorizationRequested { health.refresh() }
+            }
         }
         .preferredColorScheme(.dark)
     }

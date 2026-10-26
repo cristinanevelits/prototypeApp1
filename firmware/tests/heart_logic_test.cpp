@@ -62,4 +62,10 @@ int main() {
   assert(!logic.active);
   assert(!logic.setThresholds(80, 100));
   assert(logic.setThresholds(105, 95));
+  assert(logic.setThresholds(31, 30));
+  assert(logic.startBpm == 31 && logic.stopBpm == 30);
+  assert(logic.setThresholds(220, 219));
+  assert(!logic.setThresholds(30, 29));
+  assert(!logic.setThresholds(221, 219));
+  assert(!logic.setThresholds(31, 31));
 }

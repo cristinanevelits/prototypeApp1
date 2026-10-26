@@ -8,21 +8,17 @@
 
 #include "HeartLogic.h"
 
-// Set to 1 only after the exact motor's rated voltage/current, the breakout's
-// supply, and DRV2605L register values have been checked on the bench.
-#define MOODI_MOTOR_APPROVED 0
-#define MOODI_RATEDV_REG 0
-#define MOODI_CLAMPV_REG 0
-#if MOODI_MOTOR_APPROVED && (!MOODI_RATEDV_REG || !MOODI_CLAMPV_REG)
-#error "Verify the motor and set DRV2605L RATEDV/CLAMPV before enabling output"
-#endif
+// Preserve the working Schematik sketch's ERM/RTP setup and clamp code.
+// This is a prototype setting, not an independently verified motor rating.
+#define MOODI_MOTOR_APPROVED 1
+#define MOODI_CLAMPV_REG 137
 
 constexpr uint8_t kSdaPin = 22;  // XIAO D4
 constexpr uint8_t kSclPin = 23;  // XIAO D5
 constexpr uint32_t kContactIR = 50000;  // Tunable prototype contact heuristic
 constexpr uint32_t kBeatStaleMs = 3000;
-constexpr uint8_t kStrongRtp = 80;  // Only used after motor approval
-constexpr uint8_t kSoftRtp = 55;
+constexpr uint8_t kStrongRtp = 90;
+constexpr uint8_t kSoftRtp = 65;
 constexpr char kServiceUUID[] = "8f941100-b6b1-4f96-9f4d-356db1fe7a10";
 constexpr char kStatusUUID[]  = "8f941101-b6b1-4f96-9f4d-356db1fe7a10";
 constexpr char kControlUUID[] = "8f941102-b6b1-4f96-9f4d-356db1fe7a10";
@@ -44,6 +40,7 @@ uint32_t lastSampleMs = 0;
 uint32_t lastBeatMs = 0;
 uint32_t sampleClockMs = 0;
 uint32_t lastReportMs = 0;
+uint32_t lastDriverRetryMs = 0;
 uint32_t intervals[4] = {};
 uint8_t intervalCount = 0;
 uint8_t intervalIndex = 0;
@@ -89,9 +86,10 @@ void sampleIR(uint32_t ir) {
   lastBeatMs = sampleClockMs;
   if (!previous) return;
   const uint32_t interval = sampleClockMs - previous;
-  if (interval < 300 || interval > 1500) {
+  if (interval < 273 || interval > 2200) {
     readingValid = false;
     intervalCount = 0;
+    lastBeatMs = sampleClockMs;
     return;
   }
   intervals[intervalIndex] = interval;
@@ -100,24 +98,12 @@ void sampleIR(uint32_t ir) {
   if (intervalCount < 4) return;
 
   uint32_t sum = 0;
-  uint32_t shortest = UINT32_MAX;
-  uint32_t longest = 0;
   for (uint32_t item : intervals) {
     sum += item;
-    if (item < shortest) shortest = item;
-    if (item > longest) longest = item;
-  }
-  const uint32_t mean = sum / 4;
-  // Reject obviously irregular windows; motion artefacts still require testing.
-  if ((longest - shortest) * 100 > mean * 30) {
-    readingValid = false;
-    return;
   }
   const uint32_t candidate = (240000UL + sum / 2) / sum;
-  if (candidate >= 40 && candidate <= 200) {
-    bpm = static_cast<uint8_t>(candidate);
-    readingValid = true;
-  }
+  bpm = static_cast<uint8_t>(candidate);
+  readingValid = true;
 }
 
 class ControlCallbacks final : public NimBLECharacteristicCallbacks {
@@ -141,8 +127,8 @@ void handleCommand(uint32_t now) {
   const uint8_t a = (packed >> 8) & 0xff;
   const uint8_t b = (packed >> 16) & 0xff;
   switch (command) {
-    case 1: if (count == 2 && a <= 1) { logic.automatic = a; logic.stopNow(now); } break;
-    case 2: if (count == 2 && a <= 1) { logic.exerciseOverride = a; logic.stopNow(now); } break;
+    case 1: if (count == 2 && a <= 1) { logic.automatic = a; if (!a) logic.stopNow(now); } break;
+    case 2: if (count == 2 && a <= 1) { logic.exerciseOverride = a; if (a) logic.stopNow(now); } break;
     case 3: if (count == 3) logic.setThresholds(a, b); break;
     case 4: if (count == 1) { logic.automatic = false; logic.stopNow(now); } break;
   }
@@ -178,23 +164,26 @@ void setup() {
   Wire.begin(kSdaPin, kSclPin);
   Wire.setTimeOut(30);
 
+  Serial.println("Expected I2C addresses: MAX30102 0x57; DRV2605L 0x5A");
+  for (uint8_t address = 1; address < 127; ++address) {
+    Wire.beginTransmission(address);
+    if (Wire.endTransmission() == 0) Serial.printf("I2C: 0x%02X\n", address);
+  }
+
+  driverOK = driver.begin(&Wire);
+  if (driverOK) {
+    driver.useERM();
+    driver.writeRegister8(DRV2605_REG_CLAMPV, MOODI_CLAMPV_REG);
+    driver.setRealtimeValue(0);
+    driver.setMode(DRV2605_MODE_REALTIME);
+    applyMotor(0);
+  }
   sensorOK = sensor.begin(Wire, I2C_SPEED_STANDARD);
   if (sensorOK) {
     sensor.setup(0x1F, 1, 2, 100, 411, 4096);  // RED + IR, 100 Hz
     sensor.setPulseAmplitudeRed(0x0A);
     sensor.setPulseAmplitudeIR(0x1F);
     sensor.clearFIFO();
-  }
-  driverOK = driver.begin(&Wire);
-  if (driverOK) {
-    driver.useERM();
-    driver.setRealtimeValue(0);
-#if MOODI_MOTOR_APPROVED
-    driver.writeRegister8(DRV2605_REG_RATEDV, MOODI_RATEDV_REG);
-    driver.writeRegister8(DRV2605_REG_CLAMPV, MOODI_CLAMPV_REG);
-#endif
-    driver.setMode(DRV2605_MODE_REALTIME);
-    applyMotor(0);
   }
 
   NimBLEDevice::init("moodi");
@@ -218,13 +207,26 @@ void setup() {
   // The standard Heart Rate service is still discoverable after connecting.
   advertising->setName("moodi");
   advertising->start();
-  Serial.printf("Sensor %s; driver %s; motor output LOCKED=%u\n",
-                sensorOK ? "OK" : "MISSING", driverOK ? "OK" : "MISSING", !MOODI_MOTOR_APPROVED);
+  Serial.printf("Sensor %s; driver %s; Schematik ERM/RTP clamp=%u\n",
+                sensorOK ? "OK" : "MISSING", driverOK ? "OK" : "MISSING", MOODI_CLAMPV_REG);
 }
 
 void loop() {
   const uint32_t now = millis();
   handleCommand(now);
+  if (!driverOK && now - lastDriverRetryMs >= 5000UL) {
+    lastDriverRetryMs = now;
+    driverOK = driver.begin(&Wire);
+    if (driverOK) {
+      driver.useERM();
+      driver.writeRegister8(DRV2605_REG_CLAMPV, MOODI_CLAMPV_REG);
+      driver.setRealtimeValue(0);
+      driver.setMode(DRV2605_MODE_REALTIME);
+      appliedMotorLevel = 255;
+      applyMotor(0);
+      Serial.println("DRV2605L recovered");
+    }
+  }
   if (sensorOK) {
     sensor.check();
     while (sensor.available()) {

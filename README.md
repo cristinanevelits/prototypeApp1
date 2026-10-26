@@ -1,8 +1,8 @@
 # pulse-responsive wearable prototype
 
-A minimal iPhone app and XIAO ESP32-C6 firmware for a **non-medical** wearable prototype. The MAX30102 estimates heart rate; after a reliable reading stays above a configurable threshold for five seconds, the XIAO can play a soft, double-beat haptic pattern through a DRV2605L and one ERM motor. The phone shows live BPM over Bluetooth Low Energy (BLE) and optional recent-workout context from Apple Health.
+A minimal iPhone app for a **non-medical** XIAO ESP32-C6 wearable prototype. The MAX30102 estimates heart rate, and the XIAO drives a calm haptic pattern through a DRV2605L and one ERM motor. The phone shows live BPM over Bluetooth Low Energy (BLE), sends response settings, and optionally shows recent-workout context from Apple Health.
 
-**Current safety state:** sensing and BLE code are implemented, but motor output is **locked in firmware by default** because the exact DIANN motor voltage/current and safe DRV2605L settings remain unverified. The 200 mAh battery is **not** part of the USB breadboard build; its stated 100 mA maximum charge is below the XIAO schematic's 120 mA charger setting. This repository is not yet hardware-validated or wearable-ready.
+**Current prototype state (October 26):** the user uploaded a new `CalmPulse` program through Schematik. Its full source was supplied in a conversation attachment and defines the BLE JSON protocol documented in [`docs/BLE_PROTOCOL.md`](docs/BLE_PROTOCOL.md). The separate `firmware/MoodiWearable/` sketch in this repo is **not** that uploaded program; do not upload it over the working XIAO. Motor settings have not been independently verified against the exact motor datasheet; test off-body. The 200 mAh battery is **not** part of the USB breadboard build; its stated 100 mA maximum charge is below the XIAO schematic's 120 mA charger setting. This is not yet wearable-ready.
 
 ## Project files
 
@@ -10,17 +10,18 @@ A minimal iPhone app and XIAO ESP32-C6 firmware for a **non-medical** wearable p
 |---|---|
 | `ios/Moodi.xcodeproj` | Native SwiftUI iPhone app project (iOS 16+) |
 | `ios/Moodi/` | Live BPM UI, Core Bluetooth, HealthKit recorded-workout query |
-| `firmware/MoodiWearable/` | Arduino sketch plus standalone threshold/haptic logic |
-| `firmware/tests/` | Host-side safety/timing tests |
-| `docs/BLE_PROTOCOL.md` | Exact BLE UUIDs and byte formats |
+| `firmware/MoodiWearable/` | Older, separate Arduino sketch; not the program now on the XIAO |
+| `firmware/CalmPulseSchematik/` | Unflashed copy of the pasted Schematik program with manual On removed and status throttled |
+| `firmware/tests/` | Tests for that older sketch, not the Schematik upload |
+| `docs/BLE_PROTOCOL.md` | BLE UUIDs and JSON formats of the current Schematik program |
 
 ## Behavior
 
 - The XIAO samples the optical sensor continuously at a configured 100 Hz and sends BLE heart-rate updates about once per second. The app saves **one valid point per minute** for its graph. Sampling only once a minute would miss threshold changes and sensor-contact status.
-- Initial adjustable thresholds are **start at 100 BPM** and **reset at 90 BPM**. Four plausible beat intervals and a regularity check are required. These are prototype signal checks, not clinical validation.
-- A valid reading above the start threshold for **five seconds** requests a gentle 60-BPM-inspired double pulse. Once started, a response runs for **at least 60 seconds**, even if finger contact is lost during that first minute. With valid readings afterward, it continues while BPM remains above the reset threshold and stops only after BPM has stayed **below** the reset threshold for **30 continuous seconds**; a rise or missing reading resets that countdown. If contact is still missing at one minute (or is lost later), the response stops rather than running indefinitely without a reading. A **60-second cooldown** follows. Exercise override and switching vibration off still stop immediately. The motor pulses briefly each beat; it is not powered continuously for a minute. This duration has not been validated with the actual motor, so test only off-body after verifying its electrical ratings.
-- The XIAO runs this logic without a phone. The iPhone can adjust thresholds, disable automatic response, and set an exercise override. A disconnected phone is not an emergency stop; disconnect USB for the desk prototype.
-- The app optionally reads **recent recorded workouts** from Apple Health, where Fitness/Watch records may appear. This is **not** a dependable live indication that another app's workout is running. Use the manual exercise switch for a live override. Neither a recent workout nor its absence identifies anxiety.
+- The uploaded XIAO defaults to **Start 50 / Stop 40 BPM** on reboot and accepts whole-number settings with **40 ≤ Stop < Start ≤ 220**. The app's lowest valid Start is therefore 41 BPM. This cannot be lowered to 31 BPM from the app alone; the XIAO firmware would first need to change.
+- **Auto** starts when valid BPM is strictly **above** Start and runs the pulse pattern for at least 60 seconds. After that it stops when BPM is strictly below Stop or readings are lost. **On** runs the pattern continuously, including after BLE disconnect. **Off** stops immediately. Changing thresholds does not restart the active timer. There is no 30-second low-BPM hold or cooldown in the uploaded Schematik program.
+- The XIAO runs its chosen mode without the phone. A disconnected phone is not an emergency stop; use Off while connected or disconnect USB for the desk prototype. Test the motor only off-body.
+- The app optionally reads **recent recorded workouts** from Apple Health, where Fitness/Watch records may appear. This is **not** a dependable live indication that another app's workout is running. Choose Off manually during exercise. Neither a recent workout nor its absence identifies anxiety.
 - No cloud account, location tracking, analytics, or HealthKit writes are included.
 
 ## 1. Breadboard and firmware — USB only
@@ -38,9 +39,9 @@ Connect the motor only to the DRV2605L `motor −` and `motor +` pads, **not** X
 
 1. Install Arduino IDE and the **esp32 by Espressif Systems** board package. Select **Seeed Studio XIAO ESP32C6** if available. Use a data-capable USB-C cable.
 2. Install **SparkFun MAX3010x Sensor Library**, **Adafruit DRV2605 Library** (and its prompted BusIO dependency), and **NimBLE-Arduino 2.x** through Arduino Library Manager.
-3. Open `firmware/MoodiWearable/MoodiWearable.ino` and upload it. Open Serial Monitor at **115200 baud**. Confirm sensor and driver detection; expected I²C addresses are `0x57` and `0x5A`.
-4. Test no contact, motion, sensor removal, and USB disconnect. The app will show “motor output locked,” by design.
-5. **Only after** verifying the exact motor's ratings, power budget, and DRV2605L register values in an off-body bench test, change `MOODI_MOTOR_APPROVED` to `1`. The sketch requires nonzero `MOODI_RATEDV_REG` and `MOODI_CLAMPV_REG` values. Do not copy the screenshot's clamp code `137` without evidence for this motor.
+3. Leave the current Schematik program on the XIAO while testing this app. The checked-in `firmware/MoodiWearable/MoodiWearable.ino` is an older, incompatible BLE implementation and would replace the working program if uploaded.
+4. In the current Schematik program, Serial Monitor at **115200 baud** should scan I²C addresses `0x57` and `0x5A`; test contact, disconnect, and Off on the bench.
+5. The uploaded program uses ERM/RTP values strong 90, soft 65, and clamp register 137, as reported by the user. Keep testing off-body and verify the motor rating before wearable use.
 
 Seeed documents [D4/GPIO22 as SDA and D5/GPIO23 as SCL](https://wiki.seeedstudio.com/xiao_esp32c6_getting_started/). The [DRV2605L breakout reference](https://learn.adafruit.com/adafruit-drv2605-haptic-controller-breakout/pinouts) explains VIN, GND, I²C, and motor terminals; your purchased clone still needs visual checking. The [SparkFun library](https://github.com/sparkfun/SparkFun_MAX3010x_Sensor_Library) supports MAX30102. The [XIAO schematic](https://files.seeedstudio.com/wiki/SeeedStudio-XIAO-ESP32C6/XIAO-ESP32-C6_v1.0_SCH_PDF_24028.pdf) notes a 120 mA charging setting.
 
@@ -52,21 +53,23 @@ Arduino CLI 1.5.1, Espressif `esp32:esp32` 3.3.12, SparkFun MAX3010x 1.1.2, Adaf
 arduino-cli compile --fqbn esp32:esp32:XIAO_ESP32C6 firmware/MoodiWearable
 ```
 
+The VS Code firmware tasks target the **older repo sketch**, not the Schematik program now on the board. Do not run its upload task unless intentionally replacing the current program. Editing iOS source does not change the XIAO.
+
 ## 2. iPhone app
 
 This is a **native iOS app**, not a website: Core Bluetooth connects to XIAO and HealthKit provides permissioned access to workout records.
 
 For first-time installation and a pass/fail device test, follow [the iPhone checklist](docs/IOS_DEVICE_CHECKLIST.md). No external Swift package is needed; full Xcode supplies the Apple frameworks.
 
-1. Install the full Xcode app (this Mac currently has Command Line Tools but not full Xcode). Open `ios/Moodi.xcodeproj`.
+1. Open `ios/Moodi.xcodeproj` in Xcode.
 2. Select the `Moodi` target. Under **Signing & Capabilities**, choose your Apple development team and confirm **HealthKit** is enabled. The entitlement and permission strings are already included. Change the bundle identifier if your team requires it.
-3. Run on a **physical iPhone** with Bluetooth on. Grant Bluetooth permission, then tap **Connect to XIAO**. The app can attach to a matching peripheral already connected in iOS, or scan for `moodi` / the earlier `CalmPulse` name. iOS Settings showing a connection does not mean this app has connected or that its expected services exist. A legacy Heart Rate Service-only sketch supports **pulse display only**; encrypted Moodi controls require the matching repository sketch. Pairing may prompt on first access.
+3. Run on a **physical iPhone** with Bluetooth on. Grant Bluetooth permission, then tap **Connect to XIAO**. The app connects to `CalmPulse`, reads Heart Rate Service `180D`, and discovers the new JSON control service. iOS Settings showing a connection does not mean this app has connected or discovered its controls.
 4. Tap **Connect Health** to grant read access to Workouts, then **Refresh**. HealthKit may return no data even when read access was denied; the app therefore does not interpret “no workout” as “not exercising.”
-5. Adjust steppers and tap **Send thresholds**. The **Vibration on/off** switch enables the BPM-triggered automatic pattern or stops it immediately; turning it on does not start a motor test. The exercise switch suppresses automatic response in XIAO even after phone disconnection, until turned off or XIAO reboot. Device controls require the matching BLE sketch.
+5. Use the ± arrows to change Start and Reset BPM. Start accepts 41–220 BPM; Reset accepts 40 BPM up to one less than Start. The app sends settled values automatically and shows values reported by the wearable to confirm application. The single **Vibration on/off** switch sends Auto when on and Off when off; it never selects the firmware's indefinite manual On mode. Settings are BLE commands, not replacement program code.
 
 The app uses foreground BLE. iOS may suspend it in the background; **XIAO-side sensing and stop rules continue**. It does not monitor another app's live workout session.
 
-If the wearable currently vibrates while the checked-in sketch still has `MOODI_MOTOR_APPROVED 0`, it is running **different firmware**. Updating this repository does not change the XIAO until a sketch is uploaded; uploading this checked-in sketch as-is will lock motor output. Do not bypass that lock without verifying the motor's electrical ratings. To apply the one-minute response to the actual device, first identify its uploaded sketch and safely port the timing change to it.
+The app retries an unexpected BLE disconnect with increasing delay and displays the last disconnect reason. This can recover a transient drop, but repeated drops still need a hardware/firmware investigation. A revised copy of the Schematik code is included but **not uploaded**; the current XIAO still accepts indefinite manual On from other BLE clients. The Xcode build passes, but BLE connection, command acknowledgement, and live BPM still require a physical-iPhone test.
 
 ## Validation and unresolved hardware
 
@@ -75,7 +78,7 @@ If the wearable currently vibrates while the checked-in sketch still has `MOODI_
 - The LiPo listing says “4.25 V / 100mAh” for maximum charging; the current unit should be **mA** and must be confirmed. The XIAO published charger setting is 120 mA. Until resolved: **USB only, no LiPo connection or on-body charging**.
 - The prototype has no physical stop switch. A wearable revision needs local stop/power-off, insulated wiring, strain relief, sweat protection, and off-body charging.
 - Elevated BPM has many causes. Neither the firmware nor Apple Health diagnoses anxiety. Uncertain contact or timing stops haptics rather than guessing.
-- BLE uses encrypted bonding, but this no-display prototype cannot offer strong man-in-the-middle protection. Keep testing in a controlled setting.
+- The current Schematik control characteristic has **no pairing protection**. Nearby BLE clients may send On/Off or threshold commands. Keep testing in a controlled setting and do not treat it as a safe wearable yet.
 
 ### Checks available on this Mac
 

@@ -6,8 +6,8 @@ The iPhone app has no third-party Swift packages. SwiftUI, Charts, Core Bluetoot
 
 - Install full Xcode from Apple and launch it once to finish installing components. Command Line Tools alone cannot build an iOS app.
 - Use an iPhone with iOS 16 or later. The simulator cannot test this real BLE peripheral or the wearer's sensor contact.
-- Keep the breadboard on USB power. Do **not** connect the LiPo yet; motor output remains locked in firmware pending electrical verification.
-- Compile and upload `firmware/MoodiWearable/MoodiWearable.ino` to the XIAO ESP32-C6. The app cannot discover a board that is running unrelated firmware.
+- Keep the breadboard on USB power. Do **not** connect the LiPo yet; the motor settings still need independent electrical verification.
+- Keep the October 26 Schematik `CalmPulse` program on the XIAO. Do **not** upload the separate `firmware/MoodiWearable/MoodiWearable.ino` from VS Code; its BLE control protocol is incompatible with this app.
 
 ## Build and run
 
@@ -18,15 +18,15 @@ The iPhone app has no third-party Swift packages. SwiftUI, Charts, Core Bluetoot
 
 ## First functional test
 
-1. With the USB-powered XIAO nearby, tap **Connect to XIAO**. The app checks for an already-connected Moodi device before scanning. With the matching sketch it discovers both services and shows **Connected**. With the earlier Heart Rate Service-only `CalmPulse` sketch it can show **Connected · pulse only**; the vibration switch and thresholds remain unavailable until the matching firmware is uploaded. Secure controls may prompt for Bluetooth pairing.
+1. With the USB-powered XIAO nearby, tap **Connect to XIAO**. The app finds `CalmPulse`, discovers Heart Rate `180D` and the `8A7E...` control service, and shows **Connected**. If it says **pulse only**, verify the new Schematik program is actually flashed.
 2. Put the MAX30102 optical face against skin. A plausible BPM should appear once enough clean beats have been collected. Removing it should clear the number; `0` must never appear as a measured pulse.
-3. Change the two thresholds and tap **Send thresholds**. Check that the displayed settings settle to the values reported back by the XIAO.
-4. Switch on **I'm exercising**. The device status should reflect the override and suppress automatic response. Switch it off again.
+3. Use the ± arrows to set valid Start and Reset values (for example 50 and 40). Wait briefly, then confirm the wearable-reported values match and the pending label clears. The currently uploaded program rejects a Reset below 40 BPM.
+4. Turn **Vibration on/off** off and on; verify the reported firmware mode follows Off and Auto. The app deliberately does not expose manual On because that firmware mode can run indefinitely after Bluetooth disconnect.
 5. Tap **Connect Health**, grant workout read access if desired, and tap **Refresh**. A recorded workout may appear. No result does **not** mean the user is not exercising.
 6. Disconnect and reconnect. The XIAO should advertise again. Leave the app foregrounded for this prototype; background BLE behavior is not implemented.
 
-The motor will **not** vibrate in this build. That is intentional: its electrical rating and safe DRV2605L settings still need an off-body bench check. Do not try to force a high heart rate to test the threshold logic; the hardware-independent timing and stop rules have automated tests in `firmware/tests/`.
+The Schematik program can run the motor. Test it only off-body, and verify the motor's rated voltage/current before wearable use. Do not try to force a high heart rate to test the threshold logic. The tests in `firmware/tests/` apply to the older repo sketch, not the Schematik program.
 
-If your actual device already vibrates, it does not have the checked-in locked sketch. The one-minute timing change in this repository will not affect the device until its actual firmware is identified and updated. Do not upload the locked sketch expecting the motor to keep working.
+The current Schematik command characteristic has no BLE pairing protection. Treat this as a supervised prototype, not a secure wearable.
 
 If Xcode reports a build, signing, pairing, or permission error, record the exact message and device/iOS version before changing settings. An actual Xcode build and iPhone test are still required to call this app working on iOS.

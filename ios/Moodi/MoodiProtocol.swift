@@ -4,9 +4,9 @@ import Foundation
 enum MoodiProtocol {
     static let heartService = CBUUID(string: "180D")
     static let heartMeasurement = CBUUID(string: "2A37")
-    static let service = CBUUID(string: "8F941100-B6B1-4F96-9F4D-356DB1FE7A10")
-    static let status = CBUUID(string: "8F941101-B6B1-4F96-9F4D-356DB1FE7A10")
-    static let control = CBUUID(string: "8F941102-B6B1-4F96-9F4D-356DB1FE7A10")
+    static let service = CBUUID(string: "8A7E1000-6F34-4C9A-9F30-2B739074F001")
+    static let control = CBUUID(string: "8A7E1001-6F34-4C9A-9F30-2B739074F001")
+    static let status = CBUUID(string: "8A7E1002-6F34-4C9A-9F30-2B739074F001")
 }
 
 struct HeartMeasurement {
@@ -25,28 +25,38 @@ struct HeartMeasurement {
 }
 
 struct DeviceStatus {
-    let valid: Bool
-    let vibrating: Bool
-    let automatic: Bool
-    let workoutOverride: Bool
-    let sensorFound: Bool
+    let sequence: Int
+    let active: Bool
+    let mode: String
     let driverFound: Bool
-    let motorApproved: Bool
+    let contactDetected: Bool?
+    let readingValid: Bool?
+    let remainingSeconds: Int
+    let error: String
     let startBpm: Int
     let stopBpm: Int
 
     init?(data: Data) {
-        guard data.count == 5, data[0] == 1 else { return nil }
-        let flags = data[1]
-        valid = flags & 1 != 0
-        vibrating = flags & 2 != 0
-        automatic = flags & 4 != 0
-        workoutOverride = flags & 8 != 0
-        sensorFound = flags & 16 != 0
-        driverFound = flags & 32 != 0
-        motorApproved = flags & 64 != 0
-        startBpm = Int(data[3])
-        stopBpm = Int(data[4])
+        guard let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let sequence = object["seq"] as? Int,
+              let start = object["start"] as? Int,
+              let stop = object["stop"] as? Int,
+              let mode = object["mode"] as? String,
+              ["auto", "on", "off"].contains(mode),
+              let active = object["active"] as? Bool,
+              let driver = object["driver"] as? Bool,
+              let remaining = object["remaining"] as? Int,
+              let error = object["error"] as? String else { return nil }
+        self.sequence = sequence
+        self.startBpm = start
+        self.stopBpm = stop
+        self.mode = mode
+        self.active = active
+        self.driverFound = driver
+        self.contactDetected = object["contact"] as? Bool
+        self.readingValid = object["valid"] as? Bool
+        self.remainingSeconds = remaining
+        self.error = error
     }
 }
 
