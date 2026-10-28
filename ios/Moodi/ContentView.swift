@@ -1,15 +1,18 @@
 import Charts
 import SwiftUI
+import WidgetKit
 
 struct ContentView: View {
+    @Environment(\.scenePhase) private var scenePhase
     @StateObject private var bluetooth = BLEManager()
     @StateObject private var health = HealthManager()
-    @AppStorage("moodi.startThreshold") private var startThreshold = 100
-    @AppStorage("moodi.stopThreshold") private var stopThreshold = 90
-    @AppStorage("moodi.thresholdPending") private var thresholdPending = false
+    @AppStorage("moodi.startThreshold", store: SharedSettings.defaults) private var startThreshold = 100
+    @AppStorage("moodi.stopThreshold", store: SharedSettings.defaults) private var stopThreshold = 90
+    @AppStorage("moodi.thresholdPending", store: SharedSettings.defaults) private var thresholdPending = false
     @State private var thresholdSend: DispatchWorkItem?
-    @AppStorage("calmpulse.mode") private var responseMode = "auto"
-    @State private var modePending = false
+    @AppStorage("calmpulse.mode", store: SharedSettings.defaults) private var responseMode = "auto"
+    @AppStorage("moodi.modePending", store: SharedSettings.defaults) private var modePending = false
+    @State private var lastWidgetRevision = 0
 
     private let background = Color(red: 0.06, green: 0.07, blue: 0.10)
     private let card = Color(red: 0.12, green: 0.13, blue: 0.17)
@@ -21,6 +24,7 @@ struct ContentView: View {
             responseMode = mode
             modePending = true
             if bluetooth.controlsReady { bluetooth.setMode(mode) }
+            refreshWidget()
         })
     }
 
@@ -29,6 +33,7 @@ struct ContentView: View {
         guard (41...220).contains(next), stopThreshold < next else { return }
         startThreshold = next
         scheduleThresholdSend()
+        refreshWidget()
     }
 
     private func changeStop(by amount: Int) {
@@ -36,6 +41,7 @@ struct ContentView: View {
         guard (40..<startThreshold).contains(next) else { return }
         stopThreshold = next
         scheduleThresholdSend()
+        refreshWidget()
     }
 
     private func scheduleThresholdSend() {
@@ -48,6 +54,27 @@ struct ContentView: View {
         }
         thresholdSend = work
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.35, execute: work)
+    }
+
+    private func refreshWidget() {
+        WidgetCenter.shared.reloadTimelines(ofKind: "MoodiControlsWidget")
+    }
+
+    private func applyWidgetChanges() {
+        let settings = SharedSettings.defaults
+        let revision = settings.integer(forKey: SharedSettings.revisionKey)
+        guard revision != lastWidgetRevision else { return }
+        lastWidgetRevision = revision
+        startThreshold = SharedSettings.start
+        stopThreshold = SharedSettings.stop
+        responseMode = SharedSettings.vibrationOn ? "auto" : "off"
+        thresholdPending = settings.bool(forKey: SharedSettings.pendingKey)
+        modePending = settings.bool(forKey: SharedSettings.modePendingKey)
+        if bluetooth.controlsReady {
+            if modePending { bluetooth.setMode(responseMode) }
+            if thresholdPending { bluetooth.setThresholds(start: startThreshold, stop: stopThreshold) }
+        }
+        refreshWidget()
     }
 
     var body: some View {
@@ -226,6 +253,7 @@ struct ContentView: View {
                 if modePending {
                     if status.mode == responseMode { modePending = false }
                 } else { responseMode = status.mode }
+                refreshWidget()
             }
             .onReceive(bluetooth.$controlsReady) { ready in
                 guard ready else {
@@ -251,6 +279,13 @@ struct ContentView: View {
                     modePending = true
                 }
                 if health.authorizationRequested { health.refresh() }
+                applyWidgetChanges()
+            }
+            .onChange(of: scenePhase) { phase in
+                if phase == .active { applyWidgetChanges() }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification, object: SharedSettings.defaults)) { _ in
+                applyWidgetChanges()
             }
         }
         .preferredColorScheme(.dark)

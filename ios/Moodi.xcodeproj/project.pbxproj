@@ -13,7 +13,25 @@
 		A00000000000000000000003 /* BLEManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000003 /* BLEManager.swift */; };
 		A00000000000000000000004 /* HealthManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000004 /* HealthManager.swift */; };
 		A00000000000000000000005 /* MoodiProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000005 /* MoodiProtocol.swift */; };
+		A0000000000000000000000A /* SharedSettings.swift in Moodi Sources */ = {isa = PBXBuildFile; fileRef = B0000000000000000000000A /* SharedSettings.swift */; };
+		A0000000000000000000000B /* SharedSettings.swift in Widget Sources */ = {isa = PBXBuildFile; fileRef = B0000000000000000000000A /* SharedSettings.swift */; };
+		A0000000000000000000000C /* MoodiWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0000000000000000000000B /* MoodiWidget.swift */; };
+		A0000000000000000000000D /* MoodiWidget.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = B0000000000000000000000E /* MoodiWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		A0000000000000000000000F /* WidgetActions.swift in Moodi Sources */ = {isa = PBXBuildFile; fileRef = B0000000000000000000000F /* WidgetActions.swift */; };
+		A00000000000000000000010 /* WidgetActions.swift in Widget Sources */ = {isa = PBXBuildFile; fileRef = B0000000000000000000000F /* WidgetActions.swift */; };
+		A00000000000000000000011 /* WidgetBLEClient.swift in Moodi Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000010 /* WidgetBLEClient.swift */; };
+		A00000000000000000000012 /* WidgetBLEClient.swift in Widget Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000010 /* WidgetBLEClient.swift */; };
+		A00000000000000000000013 /* MoodiProtocol.swift in Widget Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000005 /* MoodiProtocol.swift */; };
+		A00000000000000000000014 /* Widget Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000011 /* Widget Assets.xcassets */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		B10000000000000000000001 /* PBXContainerItemProxy */ = {isa = PBXContainerItemProxy; containerPortal = E00000000000000000000002 /* Project object */; proxyType = 1; remoteGlobalIDString = E00000000000000000000003; remoteInfo = MoodiWidget; };
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		C00000000000000000000007 /* Embed App Extensions */ = {isa = PBXCopyFilesBuildPhase; buildActionMask = 2147483647; dstPath = ""; dstSubfolderSpec = 13; files = (A0000000000000000000000D /* MoodiWidget.appex in Embed App Extensions */, ); name = "Embed App Extensions"; runOnlyForDeploymentPostprocessing = 0; };
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		B00000000000000000000009 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -25,6 +43,14 @@
 		B00000000000000000000006 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		B00000000000000000000007 /* Moodi.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Moodi.entitlements; sourceTree = "<group>"; };
 		B00000000000000000000008 /* moodi.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = moodi.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		B0000000000000000000000A /* SharedSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedSettings.swift; sourceTree = "<group>"; };
+		B0000000000000000000000B /* MoodiWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoodiWidget.swift; sourceTree = "<group>"; };
+		B0000000000000000000000C /* Widget Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		B0000000000000000000000D /* MoodiWidget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = MoodiWidget.entitlements; sourceTree = "<group>"; };
+		B0000000000000000000000E /* MoodiWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = MoodiWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		B0000000000000000000000F /* WidgetActions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetActions.swift; sourceTree = "<group>"; };
+		B00000000000000000000010 /* WidgetBLEClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetBLEClient.swift; sourceTree = "<group>"; };
+		B00000000000000000000011 /* Widget Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -35,6 +61,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		C00000000000000000000005 /* Widget Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -42,6 +69,7 @@
 			isa = PBXGroup;
 			children = (
 				D00000000000000000000002 /* Moodi */,
+				D00000000000000000000004 /* MoodiWidget */,
 				D00000000000000000000003 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -54,6 +82,9 @@
 				B00000000000000000000003 /* BLEManager.swift */,
 				B00000000000000000000004 /* HealthManager.swift */,
 				B00000000000000000000005 /* MoodiProtocol.swift */,
+				B0000000000000000000000A /* SharedSettings.swift */,
+				B0000000000000000000000F /* WidgetActions.swift */,
+				B00000000000000000000010 /* WidgetBLEClient.swift */,
 				B00000000000000000000006 /* Info.plist */,
 				B00000000000000000000007 /* Moodi.entitlements */,
 				B00000000000000000000009 /* Assets.xcassets */,
@@ -65,10 +96,12 @@
 			isa = PBXGroup;
 			children = (
 				B00000000000000000000008 /* moodi.app */,
+				B0000000000000000000000E /* MoodiWidget.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
 		};
+		D00000000000000000000004 /* MoodiWidget */ = {isa = PBXGroup; children = (B0000000000000000000000B /* MoodiWidget.swift */, B00000000000000000000011 /* Widget Assets.xcassets */, B0000000000000000000000C /* Widget Info.plist */, B0000000000000000000000D /* MoodiWidget.entitlements */, ); path = MoodiWidget; sourceTree = "<group>"; };
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -79,16 +112,17 @@
 				C00000000000000000000002 /* Sources */,
 				C00000000000000000000001 /* Frameworks */,
 				C00000000000000000000003 /* Resources */,
+				C00000000000000000000007 /* Embed App Extensions */,
 			);
 			buildRules = (
 			);
-			dependencies = (
-			);
+			dependencies = (E10000000000000000000001 /* PBXTargetDependency */, );
 			name = Moodi;
 			productName = Moodi;
 			productReference = B00000000000000000000008 /* moodi.app */;
 			productType = "com.apple.product-type.application";
 		};
+		E00000000000000000000003 /* MoodiWidget */ = {isa = PBXNativeTarget; buildConfigurationList = F00000000000000000000007 /* Widget build configurations */; buildPhases = (C00000000000000000000004 /* Widget Sources */, C00000000000000000000005 /* Widget Frameworks */, C00000000000000000000006 /* Widget Resources */, ); buildRules = (); dependencies = (); name = MoodiWidget; productName = MoodiWidget; productReference = B0000000000000000000000E /* MoodiWidget.appex */; productType = "com.apple.product-type.app-extension"; };
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -103,8 +137,10 @@
 							com.apple.HealthKit = {
 								enabled = 1;
 							};
+						com.apple.ApplicationGroups = { enabled = 1; };
 						};
 					};
+					E00000000000000000000003 = { ProvisioningStyle = Automatic; SystemCapabilities = { com.apple.ApplicationGroups = { enabled = 1; }; }; };
 				};
 			};
 			buildConfigurationList = F00000000000000000000001 /* Build configuration list for PBXProject "Moodi" */;
@@ -121,6 +157,7 @@
 			projectRoot = "";
 			targets = (
 				E00000000000000000000001 /* Moodi */,
+				E00000000000000000000003 /* MoodiWidget */,
 			);
 		};
 /* End PBXProject section */
@@ -134,6 +171,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		C00000000000000000000006 /* Widget Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (A00000000000000000000014 /* Widget Assets.xcassets in Resources */, ); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -146,10 +184,18 @@
 				A00000000000000000000003 /* BLEManager.swift in Sources */,
 				A00000000000000000000004 /* HealthManager.swift in Sources */,
 				A00000000000000000000005 /* MoodiProtocol.swift in Sources */,
+				A0000000000000000000000A /* SharedSettings.swift in Moodi Sources */,
+				A0000000000000000000000F /* WidgetActions.swift in Moodi Sources */,
+				A00000000000000000000011 /* WidgetBLEClient.swift in Moodi Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		C00000000000000000000004 /* Widget Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (A0000000000000000000000B /* SharedSettings.swift in Widget Sources */, A00000000000000000000013 /* MoodiProtocol.swift in Widget Sources */, A00000000000000000000012 /* WidgetBLEClient.swift in Widget Sources */, A00000000000000000000010 /* WidgetActions.swift in Widget Sources */, A0000000000000000000000C /* MoodiWidget.swift in Sources */, ); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		E10000000000000000000001 /* PBXTargetDependency */ = {isa = PBXTargetDependency; target = E00000000000000000000003 /* MoodiWidget */; targetProxy = B10000000000000000000001 /* PBXContainerItemProxy */; };
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		F00000000000000000000003 /* Debug */ = {
@@ -224,6 +270,8 @@
 			};
 			name = Release;
 		};
+		F00000000000000000000008 /* Widget Debug */ = {isa = XCBuildConfiguration; buildSettings = { APPLICATION_EXTENSION_API_ONLY = YES; CODE_SIGN_ENTITLEMENTS = MoodiWidget/MoodiWidget.entitlements; CODE_SIGN_STYLE = Automatic; CURRENT_PROJECT_VERSION = 1; DEVELOPMENT_TEAM = BCFWSD66WY; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = MoodiWidget/Info.plist; IPHONEOS_DEPLOYMENT_TARGET = 17.0; LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks", "@executable_path/../../Frameworks", ); PRODUCT_BUNDLE_IDENTIFIER = studio.rehm.moodi.prototype.widget; PRODUCT_NAME = MoodiWidget; SDKROOT = iphoneos; SKIP_INSTALL = YES; SUPPORTED_PLATFORMS = "iphoneos iphonesimulator"; SWIFT_EMIT_LOC_STRINGS = YES; SWIFT_VERSION = 5.0; TARGETED_DEVICE_FAMILY = 1; }; name = Debug; };
+		F00000000000000000000009 /* Widget Release */ = {isa = XCBuildConfiguration; buildSettings = { APPLICATION_EXTENSION_API_ONLY = YES; CODE_SIGN_ENTITLEMENTS = MoodiWidget/MoodiWidget.entitlements; CODE_SIGN_STYLE = Automatic; CURRENT_PROJECT_VERSION = 1; DEVELOPMENT_TEAM = BCFWSD66WY; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = MoodiWidget/Info.plist; IPHONEOS_DEPLOYMENT_TARGET = 17.0; LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks", "@executable_path/../../Frameworks", ); PRODUCT_BUNDLE_IDENTIFIER = studio.rehm.moodi.prototype.widget; PRODUCT_NAME = MoodiWidget; SDKROOT = iphoneos; SKIP_INSTALL = YES; SUPPORTED_PLATFORMS = "iphoneos iphonesimulator"; SWIFT_EMIT_LOC_STRINGS = YES; SWIFT_VERSION = 5.0; TARGETED_DEVICE_FAMILY = 1; }; name = Release; };
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -245,6 +293,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+		F00000000000000000000007 /* Widget build configurations */ = {isa = XCConfigurationList; buildConfigurations = (F00000000000000000000008 /* Widget Debug */, F00000000000000000000009 /* Widget Release */, ); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
 /* End XCConfigurationList section */
 	};
 	rootObject = E00000000000000000000002 /* Project object */;

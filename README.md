@@ -9,7 +9,8 @@ A minimal iPhone app for a **non-medical** XIAO ESP32-C6 wearable prototype. The
 | Path | Purpose |
 |---|---|
 | `ios/Moodi.xcodeproj` | Native SwiftUI iPhone app project (iOS 16+) |
-| `ios/Moodi/` | Live BPM UI, Core Bluetooth, HealthKit recorded-workout query |
+| `ios/Moodi/` | Live BPM UI, Core Bluetooth, HealthKit recorded-workout query, shared widget settings |
+| `ios/MoodiWidget/` | iOS 17+ home-screen widget for vibration and threshold controls |
 | `firmware/MoodiWearable/` | Older, separate Arduino sketch; not the program now on the XIAO |
 | `firmware/CalmPulseSchematik/` | Unflashed copy of the pasted Schematik program with manual On removed and status throttled |
 | `firmware/tests/` | Tests for that older sketch, not the Schematik upload |
@@ -66,6 +67,12 @@ For first-time installation and a pass/fail device test, follow [the iPhone chec
 3. Run on a **physical iPhone** with Bluetooth on. Grant Bluetooth permission, then tap **Connect to XIAO**. The app connects to `CalmPulse`, reads Heart Rate Service `180D`, and discovers the new JSON control service. iOS Settings showing a connection does not mean this app has connected or discovered its controls.
 4. Tap **Connect Health** to grant read access to Workouts, then **Refresh**. HealthKit may return no data even when read access was denied; the app therefore does not interpret “no workout” as “not exercising.”
 5. Use the ± arrows to change Start and Reset BPM. Start accepts 41–220 BPM; Reset accepts 40 BPM up to one less than Start. The app sends settled values automatically and shows values reported by the wearable to confirm application. The single **Vibration on/off** switch sends Auto when on and Off when off; it never selects the firmware's indefinite manual On mode. Settings are BLE commands, not replacement program code.
+
+### Home-screen widget
+
+On **iOS 17 or later**, reinstall/run the updated app on your iPhone, then long-press the Home Screen, tap **Edit → Add Widget**, search for **moodi**, and choose **moodi controls** (small square). It shows a small Moodi logo, Start and Reset thresholds with ± controls, and a Connect button. The widget's controls run without opening the app: each threshold tap saves the new value and attempts a short Bluetooth connection, write, and status readback. **SYNCED** means the XIAO reported the requested numbers; **PENDING** means the phone saved them but the wearable has not confirmed them. Connect checks the wearable and retries any pending thresholds. This is a one-shot exchange, not a persistent Home Screen BLE connection. Bluetooth in widgets is still unverified on a physical iPhone with this XIAO; if the widget cannot reach CalmPulse, open the app and check its wearable-reported settings before relying on a change. The widget does not offer the vibration On/Off control; that remains in the app.
+
+The app and widget use the App Group `group.studio.rehm.moodi.prototype`. In Xcode, keep **App Groups** enabled for both the Moodi and MoodiWidget targets and let automatic signing create matching profiles. If your Apple team cannot provision that group, Xcode will report a signing error and the widget cannot share settings until that capability is available. The main app still supports iOS 16, but the interactive widget requires iOS 17+.
 
 The app uses foreground BLE. iOS may suspend it in the background; **XIAO-side sensing and stop rules continue**. It does not monitor another app's live workout session.
 
